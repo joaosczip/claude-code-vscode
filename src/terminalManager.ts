@@ -53,7 +53,7 @@ export function sendReference(reference: string): void {
     );
     return;
   }
-  terminal.sendText(reference, false);
+  terminal.sendText(reference + ' ', false);
 }
 
 export function getStatusText(): string {
