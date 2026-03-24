@@ -7,6 +7,8 @@ import { writeLockFile, deleteLockFile } from './ideLock';
 import { startMcpServer } from './mcpServer';
 
 export function activate(context: vscode.ExtensionContext): void {
+  let launching = false;
+
   // Restore persisted pin from workspace state
   terminalManager.initFromWorkspaceState(context);
 
@@ -55,21 +57,42 @@ export function activate(context: vscode.ExtensionContext): void {
   // Command: launch Claude with MCP server
   context.subscriptions.push(
     vscode.commands.registerCommand('cc-cli-ext.launchClaude', async () => {
-      const authToken = crypto.randomUUID();
-      const port = await findFreePort();
-      const lockPath = writeLockFile(port, authToken);
-      const server = await startMcpServer(port, authToken);
+      if (launching) {
+        vscode.window.showWarningMessage('Claude is already launching.');
+        return;
+      }
+      launching = true;
 
-      const terminal = vscode.window.createTerminal({ name: 'Claude' });
-      terminal.show();
-      terminal.sendText('claude', true);
+      let lockPath: string | undefined;
+      let server: { close(): void } | undefined;
+      let cleaned = false;
 
-      const cleanup = () => { deleteLockFile(lockPath); server.close(); };
+      const cleanup = (): void => {
+        if (cleaned) { return; }
+        cleaned = true;
+        if (lockPath) { deleteLockFile(lockPath); }
+        if (server) { server.close(); }
+        launching = false;
+      };
 
-      const closeListener = vscode.window.onDidCloseTerminal(t => {
-        if (t === terminal) { closeListener.dispose(); cleanup(); }
-      });
-      context.subscriptions.push(closeListener, { dispose: cleanup });
+      try {
+        const authToken = crypto.randomUUID();
+        const port = await findFreePort();
+        lockPath = writeLockFile(port, authToken);
+        server = await startMcpServer(port, authToken);
+
+        const terminal = vscode.window.createTerminal({ name: 'Claude' });
+        terminal.show();
+        terminal.sendText('claude', true);
+
+        const closeListener = vscode.window.onDidCloseTerminal(t => {
+          if (t === terminal) { closeListener.dispose(); cleanup(); }
+        });
+        context.subscriptions.push(closeListener, { dispose: cleanup });
+      } catch (err: unknown) {
+        cleanup();
+        vscode.window.showErrorMessage(`Failed to launch Claude: ${String(err)}`);
+      }
     })
   );
 
