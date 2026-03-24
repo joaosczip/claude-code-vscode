@@ -93,11 +93,11 @@ function parseFrame(buf: Buffer): ParsedFrame | null {
 
   let maskKey: Buffer | null = null;
   if (masked) {
-    maskKey = buf.slice(offset, offset + 4);
+    maskKey = buf.subarray(offset, offset + 4);
     offset += 4;
   }
 
-  const rawPayload = buf.slice(offset, offset + payloadLen);
+  const rawPayload = buf.subarray(offset, offset + payloadLen);
   offset += payloadLen;
 
   let payload: Buffer;
@@ -327,7 +327,7 @@ export function startMcpServer(
             break; // wait for more data
           }
 
-          buf = buf.slice(frame.consumed);
+          buf = buf.subarray(frame.consumed);
 
           if (frame.opcode === 0x8) {
             // Close frame — echo close and destroy
