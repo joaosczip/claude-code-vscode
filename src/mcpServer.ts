@@ -81,8 +81,9 @@ function parseFrame(buf: Buffer): ParsedFrame | null {
     if (buf.length < offset + 8) {
       return null;
     }
-    // Only read lower 4 bytes; upper 4 should be 0 for any reasonable message
-    payloadLen = buf.readUInt32BE(offset + 4);
+    const hi = buf.readUInt32BE(offset);
+    const lo = buf.readUInt32BE(offset + 4);
+    payloadLen = hi * 0x100000000 + lo;
     offset += 8;
   }
 
