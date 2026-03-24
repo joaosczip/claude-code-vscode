@@ -38,7 +38,7 @@ async function handleOpenPlan(
     return { content: [{ type: 'text', text: 'Error: invalid plan file path' }], isError: true };
   }
   await vscode.commands.executeCommand(
-    'markdown.showPreview',
+    'vscode.open',
     vscode.Uri.file(resolved)
   );
   logger.info(`handleOpenPlan: opened ${resolved}`);
@@ -75,6 +75,7 @@ async function handleMessage(
   logger.trace(`handleMessage: method=${method ?? '(none)'} id=${String(id)}`);
 
   if (method === 'initialize') {
+    logger.debug(`handleMessage: initialize id=${String(id)}`);
     send(
       jsonRpcResult(id, {
         protocolVersion: '2024-11-05',
@@ -86,6 +87,7 @@ async function handleMessage(
   }
 
   if (method === 'tools/list') {
+    logger.debug(`handleMessage: tools/list id=${String(id)}`);
     send(
       jsonRpcResult(id, {
         tools: [
@@ -114,6 +116,7 @@ async function handleMessage(
   if (method === 'tools/call') {
     const p = params as { name?: string; arguments?: { filePath?: string } };
     if (p?.name !== 'openPlan') {
+      logger.error(`handleMessage: error in tools/call: unknown tool ${p?.name}`);
       send(
         jsonRpcResult(id, {
           content: [{ type: 'text', text: 'Error: unknown tool' }],
@@ -125,6 +128,7 @@ async function handleMessage(
 
     const filePath = p?.arguments?.filePath;
     if (!filePath) {
+      logger.error(`handleMessage: error in tools/call: missing filePath argument`);
       send(
         jsonRpcResult(id, {
           content: [{ type: 'text', text: 'Error: missing filePath argument' }],
@@ -148,6 +152,7 @@ async function handleMessage(
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      logger.error(`handleMessage: error in tools/call: ${message}`);
       send(
         jsonRpcResult(id, {
           content: [{ type: 'text', text: `Error: ${message}` }],

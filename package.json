@@ -32,7 +32,7 @@
     "keybindings": [
       {
         "command": "cc-cli-ext.sendReference",
-        "key": "shift+cmd+l",
+        "key": "cmd+alt+k",
         "when": "editorTextFocus"
       }
     ],
