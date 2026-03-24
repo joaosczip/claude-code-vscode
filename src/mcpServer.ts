@@ -38,7 +38,7 @@ async function handleOpenPlan(
     return { content: [{ type: 'text', text: 'Error: invalid plan file path' }], isError: true };
   }
   await vscode.commands.executeCommand(
-    'markdown.showPreviewToSide',
+    'markdown.showPreview',
     vscode.Uri.file(resolved)
   );
   logger.info(`handleOpenPlan: opened ${resolved}`);
@@ -92,7 +92,7 @@ async function handleMessage(
           {
             name: 'openPlan',
             description:
-              'Opens a markdown plan file in VS Code as a preview panel.',
+              'Opens a markdown plan file in VS Code as rendered markdown.',
             inputSchema: {
               type: 'object',
               properties: {
