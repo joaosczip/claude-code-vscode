@@ -1,6 +1,10 @@
 import * as vscode from 'vscode';
+import * as crypto from 'crypto';
 import * as referenceBuilder from './referenceBuilder';
 import * as terminalManager from './terminalManager';
+import { findFreePort } from './portFinder';
+import { writeLockFile, deleteLockFile } from './ideLock';
+import { startMcpServer } from './mcpServer';
 
 export function activate(context: vscode.ExtensionContext): void {
   // Restore persisted pin from workspace state
@@ -45,6 +49,27 @@ export function activate(context: vscode.ExtensionContext): void {
       terminalManager.pinCurrentTerminal(context);
       updateStatus();
       vscode.window.showInformationMessage('Terminal pinned as Claude Code target.');
+    })
+  );
+
+  // Command: launch Claude with MCP server
+  context.subscriptions.push(
+    vscode.commands.registerCommand('cc-cli-ext.launchClaude', async () => {
+      const authToken = crypto.randomUUID();
+      const port = await findFreePort();
+      const lockPath = writeLockFile(port, authToken);
+      const server = await startMcpServer(port, authToken);
+
+      const terminal = vscode.window.createTerminal({ name: 'Claude' });
+      terminal.show();
+      terminal.sendText('claude', true);
+
+      const cleanup = () => { deleteLockFile(lockPath); server.close(); };
+
+      const closeListener = vscode.window.onDidCloseTerminal(t => {
+        if (t === terminal) { closeListener.dispose(); cleanup(); }
+      });
+      context.subscriptions.push(closeListener, { dispose: cleanup });
     })
   );
 
