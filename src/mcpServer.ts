@@ -4,6 +4,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { WebSocketServer, WebSocket } from 'ws';
+import { logger } from './logger';
 
 export interface McpServer {
   port: number;
@@ -31,13 +32,16 @@ async function handleOpenPlan(
 ): Promise<{ content: Array<{ type: string; text: string }>; isError: boolean } | string> {
   const plansDir = path.join(os.homedir(), '.claude', 'plans') + path.sep;
   const resolved = path.resolve(filePath);
+  logger.debug(`handleOpenPlan: filePath=${filePath}, resolved=${resolved}`);
   if (!resolved.startsWith(plansDir) || !resolved.endsWith('.md')) {
+    logger.warn(`handleOpenPlan: invalid path rejected: ${resolved}`);
     return { content: [{ type: 'text', text: 'Error: invalid plan file path' }], isError: true };
   }
   await vscode.commands.executeCommand(
     'markdown.showPreviewToSide',
     vscode.Uri.file(resolved)
   );
+  logger.info(`handleOpenPlan: opened ${resolved}`);
   return 'Plan opened in VS Code preview.';
 }
 
@@ -67,6 +71,8 @@ async function handleMessage(
   if (id === undefined || id === null) {
     return;
   }
+
+  logger.trace(`handleMessage: method=${method ?? '(none)'} id=${String(id)}`);
 
   if (method === 'initialize') {
     send(
@@ -188,6 +194,7 @@ export function startMcpServer(
     });
 
     wss.on('connection', (ws: WebSocket) => {
+      logger.debug('mcpServer: client connected');
       ws.on('message', (data: Buffer | string) => {
         const raw = Buffer.isBuffer(data) ? data.toString('utf8') : data;
         handleMessage(raw, (msg) => {
@@ -195,7 +202,7 @@ export function startMcpServer(
             ws.send(msg);
           }
         }).catch((err: unknown) => {
-          console.error('[mcpServer] unhandled error in message handler:', err);
+          logger.error(`mcpServer: unhandled error in message handler: ${String(err)}`);
         });
       });
     });
@@ -204,6 +211,7 @@ export function startMcpServer(
 
     server.listen(port, '127.0.0.1', () => {
       server.removeListener('error', reject);
+      logger.info(`mcpServer: listening on port ${port}`);
 
       resolve({
         port,

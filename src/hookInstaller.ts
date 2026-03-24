@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { logger } from './logger';
 
 interface HookEntry {
   type: string;
@@ -23,14 +23,16 @@ interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-export function installHooks(extensionPath: string): void {
-  const settingsPath = path.join(os.homedir(), '.claude', 'settings.json');
+export function installHooks(extensionPath: string, workspaceRoot: string): void {
+  const settingsPath = path.join(workspaceRoot, '.claude', 'settings.json');
+  logger.info(`installHooks: updating ${settingsPath}`);
 
   let settings: ClaudeSettings = {};
   try {
     settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    logger.debug('installHooks: loaded existing settings');
   } catch {
-    // File missing or invalid — start fresh
+    logger.warn('installHooks: settings file missing or invalid — starting fresh');
   }
 
   if (!settings.hooks) settings.hooks = {};
@@ -47,6 +49,9 @@ export function installHooks(extensionPath: string): void {
   }
   if (!writeMatcher.hooks.some(h => h.command === openPlanCmd)) {
     writeMatcher.hooks.push({ type: 'command', command: openPlanCmd, timeout: 6, async: true });
+    logger.debug('installHooks: added open-plan hook (PostToolUse/Write)');
+  } else {
+    logger.debug('installHooks: open-plan hook already present, skipping');
   }
 
   // --- PermissionRequest · ExitPlanMode ---
@@ -58,8 +63,12 @@ export function installHooks(extensionPath: string): void {
   }
   if (!exitMatcher.hooks.some(h => h.command === postPlanCmd)) {
     exitMatcher.hooks.push({ type: 'command', command: postPlanCmd, timeout: 5 });
+    logger.debug('installHooks: added post-plan hook (PermissionRequest/ExitPlanMode)');
+  } else {
+    logger.debug('installHooks: post-plan hook already present, skipping');
   }
 
   fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
   fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2), { encoding: 'utf8', mode: 0o600 });
+  logger.info('installHooks: settings written');
 }

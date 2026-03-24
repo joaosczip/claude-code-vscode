@@ -6,9 +6,19 @@ import { findFreePort } from './portFinder';
 import { writeLockFile, deleteLockFile } from './ideLock';
 import { startMcpServer } from './mcpServer';
 import { installHooks } from './hookInstaller';
+import { logger } from './logger';
 
 export function activate(context: vscode.ExtensionContext): void {
-  installHooks(context.extensionPath);
+  context.subscriptions.push(logger);
+  logger.info('cc-cli-ext activating');
+
+  const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  if (workspaceRoot) {
+    installHooks(context.extensionPath, workspaceRoot);
+    logger.debug(`hooks installed for workspace: ${workspaceRoot}`);
+  } else {
+    logger.debug('no workspace root — skipping hook installation');
+  }
   let launching = false;
 
   // Restore persisted pin from workspace state
@@ -39,9 +49,11 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('cc-cli-ext.sendReference', () => {
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
+        logger.debug('sendReference: no active editor, skipping');
         return;
       }
       const ref = referenceBuilder.buildReference(editor);
+      logger.debug(`sendReference: sending "${ref}"`);
       terminalManager.sendReference(ref);
       updateStatus();
     })
@@ -50,6 +62,7 @@ export function activate(context: vscode.ExtensionContext): void {
   // Command: pin active terminal as Claude Code target
   context.subscriptions.push(
     vscode.commands.registerCommand('cc-cli-ext.pinTerminal', () => {
+      logger.info('pinTerminal: pinning active terminal');
       terminalManager.pinCurrentTerminal(context);
       updateStatus();
       vscode.window.showInformationMessage('Terminal pinned as Claude Code target.');
@@ -60,9 +73,11 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('cc-cli-ext.launchClaude', async () => {
       if (launching) {
+        logger.warn('launchClaude: already launching, ignoring');
         vscode.window.showWarningMessage('Claude is already launching.');
         return;
       }
+      logger.info('launchClaude: starting');
       launching = true;
 
       let lockPath: string | undefined;
@@ -72,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
       const cleanup = (): void => {
         if (cleaned) { return; }
         cleaned = true;
+        logger.debug('launchClaude: cleanup triggered');
         if (lockPath) { deleteLockFile(lockPath); }
         if (server) { server.close(); }
         launching = false;
@@ -81,6 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const authToken = crypto.randomUUID();
         const port = await findFreePort();
         lockPath = writeLockFile(port, authToken);
+        logger.debug(`launchClaude: MCP server on port ${port}, lockPath=${lockPath}`);
         server = await startMcpServer(port, authToken);
 
         const terminal = vscode.window.createTerminal({ name: 'Claude' });
@@ -92,6 +109,7 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         context.subscriptions.push(closeListener, { dispose: cleanup });
       } catch (err: unknown) {
+        logger.error(`launchClaude: failed — ${String(err)}`);
         cleanup();
         vscode.window.showErrorMessage(`Failed to launch Claude: ${String(err)}`);
       }
