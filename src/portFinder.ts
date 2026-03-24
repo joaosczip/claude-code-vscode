@@ -7,6 +7,8 @@ export function findFreePort(): Promise<number> {
       const port = (srv.address() as net.AddressInfo).port;
       srv.close(err => err ? reject(err) : resolve(port));
     });
-    srv.on('error', reject);
+    srv.on('error', (err) => {
+      srv.close(() => reject(err));
+    });
   });
 }

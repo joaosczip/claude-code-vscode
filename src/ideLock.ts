@@ -16,10 +16,16 @@ export function writeLockFile(port: number, authToken: string): string {
     runningInWindows: process.platform === 'win32',
     authToken,
   };
-  fs.writeFileSync(lockPath, JSON.stringify(content), 'utf8');
+  fs.writeFileSync(lockPath, JSON.stringify(content), { encoding: 'utf8', mode: 0o600 });
   return lockPath;
 }
 
 export function deleteLockFile(lockPath: string): void {
-  try { fs.unlinkSync(lockPath); } catch { /* already gone */ }
+  try {
+    fs.unlinkSync(lockPath);
+  } catch (e: unknown) {
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw e;
+    }
+  }
 }
