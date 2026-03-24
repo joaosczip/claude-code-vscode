@@ -43,6 +43,12 @@
           "group": "navigation",
           "when": "editorTextFocus"
         }
+      ],
+      "editor/title/context": [
+        {
+          "command": "cc-cli-ext.launchClaude",
+          "group": "navigation"
+        }
       ]
     }
   },
@@ -51,9 +57,13 @@
     "watch": "tsc -watch -p ./",
     "package": "vsce package"
   },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
   "devDependencies": {
     "@types/node": "^20.19.37",
     "@types/vscode": "^1.85.0",
+    "@types/ws": "^8.5.10",
     "@vscode/vsce": "^2.22.0",
     "typescript": "^5.3.0"
   }

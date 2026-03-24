@@ -28,9 +28,9 @@ export function buildReference(editor: vscode.TextEditor): string {
     return `@${relativePath}`;
   } else if (startLine === endLine) {
     // Single-line selection: return `@relativePath:line` (1-based)
-    return `@${relativePath}:${startLine + 1}`;
+    return `@${relativePath}#${startLine + 1}`;
   } else {
     // Multi-line selection: return `@relativePath:startLine-endLine` (1-based)
-    return `@${relativePath}:${startLine + 1}-${endLine + 1}`;
+    return `@${relativePath}#${startLine + 1}-${endLine + 1}`;
   }
 }

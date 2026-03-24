@@ -5,6 +5,7 @@
     "outDir": "out",
     "lib": ["ES2020"],
     "strict": true,
+    "esModuleInterop": true,
     "rootDir": "src"
   },
   "include": ["src"]

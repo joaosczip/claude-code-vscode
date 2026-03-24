@@ -5,8 +5,10 @@ import * as terminalManager from './terminalManager';
 import { findFreePort } from './portFinder';
 import { writeLockFile, deleteLockFile } from './ideLock';
 import { startMcpServer } from './mcpServer';
+import { installHooks } from './hookInstaller';
 
 export function activate(context: vscode.ExtensionContext): void {
+  installHooks(context.extensionPath);
   let launching = false;
 
   // Restore persisted pin from workspace state
