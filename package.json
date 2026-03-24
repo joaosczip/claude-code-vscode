@@ -1,8 +1,14 @@
 {
   "name": "cc-cli-ext",
-  "displayName": "Claude Code",
+  "displayName": "Claude Code Bridge",
   "description": "Send file/line references from VS Code to Claude Code terminal sessions",
   "version": "0.0.1",
+  "publisher": "joaosczip",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/joaosczip/cc-cli-ext"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -22,11 +28,6 @@
       {
         "command": "cc-cli-ext.pinTerminal",
         "title": "Pin as Claude Code Terminal"
-      },
-      {
-        "command": "cc-cli-ext.launchClaude",
-        "title": "Launch Claude",
-        "category": "Claude Code"
       }
     ],
     "keybindings": [
@@ -44,12 +45,7 @@
           "when": "editorTextFocus"
         }
       ],
-      "editor/title/context": [
-        {
-          "command": "cc-cli-ext.launchClaude",
-          "group": "navigation"
-        }
-      ]
+      "editor/title/context": []
     }
   },
   "scripts": {

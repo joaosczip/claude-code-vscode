@@ -1,10 +1,10 @@
-# Claude Code — VS Code Extension
+# Claude Code Bridge — VS Code Extension
 
 Send file and line references from VS Code directly into your Claude Code terminal session — without leaving the editor.
 
 ## What it does
 
-When you're editing a file and want Claude to look at something specific, press `Shift+Cmd+L` (or right-click → **Send Reference to Claude Code**). The extension inserts an `@file:line` reference at the Claude prompt, ready for you to add context and submit.
+When you're editing a file and want Claude to look at something specific, press `⌘⌥K` (or right-click → **Send Reference to Claude Code**). The extension inserts an `@file:line` reference at the Claude prompt, ready for you to add context and submit.
 
 | Selection | Inserted text |
 |-----------|---------------|
@@ -18,7 +18,7 @@ The reference is typed into the terminal — not submitted — so you can comple
 
 ### From the marketplace
 
-> Coming soon.
+Search for **Claude Code Bridge** in the Extensions panel (`⌘⇧X`) and click **Install**.
 
 ### From source
 
@@ -62,9 +62,9 @@ The bottom-right status bar shows the current target:
 
 | Command | Default keybinding | When |
 |---------|--------------------|------|
-| Send Reference to Claude Code | `Shift+Cmd+L` | Editor focused |
+| Send Reference to Claude Code | `⌘⌥K` | Editor focused |
 
-To change the keybinding, open **Keyboard Shortcuts** (`Cmd+K Cmd+S`) and search for `cc-cli-ext.sendReference`.
+To change the keybinding, open **Keyboard Shortcuts** (`⌘K ⌘S`) and search for `cc-cli-ext.sendReference`.
 
 ## Development
 
