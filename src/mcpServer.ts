@@ -1,11 +1,12 @@
 import * as http from 'http';
 import * as net from 'net';
 import * as crypto from 'crypto';
+import * as os from 'os';
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 export interface McpServer {
   port: number;
-  authToken: string;
   close(): void;
 }
 
@@ -85,9 +86,18 @@ function parseFrame(buf: Buffer): ParsedFrame | null {
     const lo = buf.readUInt32BE(offset + 4);
     payloadLen = hi * 0x100000000 + lo;
     offset += 8;
+    if (hi !== 0) {
+      // Payload > 4 GB — signal oversized so caller can destroy
+      return { opcode: -1, payload: '', consumed: 0 };
+    }
   }
 
-  const maskLen = masked ? 4 : 0;
+  if (!masked) {
+    // RFC 6455 §5.1: all client→server frames MUST be masked
+    return { opcode: -1, payload: '', consumed: 0 };
+  }
+
+  const maskLen = 4;
   if (buf.length < offset + maskLen + payloadLen) {
     return null; // incomplete frame
   }
@@ -130,10 +140,17 @@ function jsonRpcError(
 
 // --- Tool: openPlan ---
 
-async function handleOpenPlan(filePath: string): Promise<string> {
+async function handleOpenPlan(
+  filePath: string
+): Promise<{ content: Array<{ type: string; text: string }>; isError: boolean } | string> {
+  const plansDir = path.join(os.homedir(), '.claude', 'plans') + path.sep;
+  const resolved = path.resolve(filePath);
+  if (!resolved.startsWith(plansDir) || !resolved.endsWith('.md')) {
+    return { content: [{ type: 'text', text: 'Error: invalid plan file path' }], isError: true };
+  }
   await vscode.commands.executeCommand(
     'markdown.showPreviewToSide',
-    vscode.Uri.file(filePath)
+    vscode.Uri.file(resolved)
   );
   return 'Plan opened in VS Code preview.';
 }
@@ -234,15 +251,19 @@ async function handleMessage(
     }
 
     try {
-      const text = await handleOpenPlan(filePath);
-      send(
-        encodeFrame(
-          jsonRpcResult(id, {
-            content: [{ type: 'text', text }],
-            isError: false,
-          })
-        )
-      );
+      const result = await handleOpenPlan(filePath);
+      if (typeof result === 'string') {
+        send(
+          encodeFrame(
+            jsonRpcResult(id, {
+              content: [{ type: 'text', text: result }],
+              isError: false,
+            })
+          )
+        );
+      } else {
+        send(encodeFrame(jsonRpcResult(id, result)));
+      }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       send(
@@ -273,11 +294,18 @@ export function startMcpServer(
 
     const server = http.createServer();
 
+    server.on('request', (_req, res) => {
+      res.writeHead(426, 'Upgrade Required', { 'Content-Length': '0' });
+      res.end();
+    });
+
     server.on('upgrade', (req: http.IncomingMessage, socket: net.Socket) => {
       // --- Authentication ---
-      const authHeader = req.headers['authorization'] ?? '';
       const expected = `Bearer ${authToken}`;
-      if (authHeader !== expected) {
+      const authHeader = req.headers['authorization'] ?? '';
+      const a = Buffer.from(authHeader.padEnd(expected.length, '\0'));
+      const b = Buffer.from(expected);
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
         socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
         socket.destroy();
         return;
@@ -322,10 +350,22 @@ export function startMcpServer(
       socket.on('data', (chunk: Buffer) => {
         let buf = Buffer.concat([buffers.get(socket) ?? Buffer.alloc(0), chunk]);
 
+        const MAX_BUFFER = 1024 * 1024; // 1 MB
+        if (buf.length > MAX_BUFFER) {
+          socket.destroy();
+          return;
+        }
+
         while (true) {
           const frame = parseFrame(buf);
           if (!frame) {
             break; // wait for more data
+          }
+
+          if (frame.opcode === -1) {
+            // Invalid frame (unmasked or oversized) — destroy connection
+            socket.destroy();
+            return;
           }
 
           buf = buf.subarray(frame.consumed);
@@ -339,8 +379,8 @@ export function startMcpServer(
 
           if (frame.opcode === 0x1) {
             // Text frame
-            handleMessage(frame.payload, send).catch(() => {
-              /* swallow async errors */
+            handleMessage(frame.payload, send).catch((err: unknown) => {
+              console.error('[mcpServer] unhandled error in message handler:', err);
             });
           }
           // Ignore other opcodes (ping, binary, continuation)
@@ -357,7 +397,6 @@ export function startMcpServer(
 
       const mcpServer: McpServer = {
         port,
-        authToken,
         close(): void {
           for (const s of sockets) {
             s.destroy();
